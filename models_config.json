@@ -1,0 +1,70 @@
+{
+  "models": {
+    "openai/gpt-4.1-mini": {
+      "name": "GPT-4.1 Mini",
+      "provider": "OpenAI",
+      "emoji": "💨",
+      "description": "Fast, cost-effective model for general conversations",
+      "pricing": {
+        "input_tokens_per_million": 0.40,
+        "output_tokens_per_million": 1.60
+      },
+      "capabilities": ["fast", "reliable", "general", "cost-effective"],
+      "max_tokens": 4000,
+      "available": true,
+      "recommended_for": "General chat, quick responses, budget-conscious users"
+    },
+    "google/gemini-2.5-flash": {
+      "name": "Gemini 2.5 Flash",
+      "provider": "Google",
+      "emoji": "⚡",
+      "description": "Very fast multimodal model with excellent reasoning",
+      "pricing": {
+        "input_tokens_per_million": 0.30,
+        "output_tokens_per_million": 2.50
+      },
+      "capabilities": ["very-fast", "multimodal", "reasoning", "vision"],
+      "max_tokens": 4000,
+      "available": true,
+      "recommended_for": "Fast responses, complex reasoning, multimodal tasks"
+    },
+    "x-ai/grok-2-1212": {
+      "name": "Grok 2",
+      "provider": "xAI",
+      "emoji": "🤖",
+      "description": "Working Grok model with humorous personality",
+      "pricing": {
+        "input_tokens_per_million": 0.30,
+        "output_tokens_per_million": 0.50
+      },
+      "capabilities": ["cheapest", "humorous", "real-time", "personality"],
+      "max_tokens": 4000,
+      "available": true,
+      "recommended_for": "Budget optimization, personality-driven responses, high-volume usage"
+    },
+    "x-ai/grok-3-mini": {
+      "name": "Grok 3 Mini",
+      "provider": "xAI",
+      "emoji": "🤖",
+      "description": "Cheapest output tokens with humorous personality (currently unavailable)",
+      "pricing": {
+        "input_tokens_per_million": 0.30,
+        "output_tokens_per_million": 0.50
+      },
+      "capabilities": ["cheapest", "humorous", "real-time", "personality"],
+      "max_tokens": 4000,
+      "available": false,
+      "recommended_for": "Budget optimization, personality-driven responses, high-volume usage"
+    }
+  },
+  "default_model": "openai/gpt-4.1-mini",
+  "cost_calculation": {
+    "openrouter_fee_percentage": 5.5,
+    "minimum_fee": 0.80
+  },
+  "ui_settings": {
+    "show_pricing": true,
+    "show_cost_estimation": true,
+    "show_model_comparison": true
+  }
+}

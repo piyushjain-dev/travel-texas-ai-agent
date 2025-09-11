@@ -8,9 +8,14 @@ A modern, modular AI chat agent that promotes Texas tourism using various AI mod
 
 ## ✨ Features
 
-- 🤖 **Multiple AI Models**: Claude, GPT-4, Llama support
+- 🤖 **Multiple AI Models**: Claude, GPT-4, Llama, Gemini, Grok support
 - 💬 **Real-time Streaming**: ChatGPT-like text generation
-- 📊 **Token Tracking**: Monitor API usage and costs
+- 💰 **Advanced Cost Management**: Comprehensive cost tracking with Supabase database
+- 🎯 **Budget Management**: Set daily, monthly, and total spending limits
+- 📊 **Analytics Dashboard**: Visualize usage trends and cost analytics
+- 📈 **Session Tracking**: Track conversations and costs per session
+- 🔍 **Cost Comparison**: Compare model costs and efficiency
+- 📤 **Export Capabilities**: Export analytics data as CSV or JSON
 - 🎯 **Texas Tourism Focus**: Specialized prompts for travel recommendations
 - 🔐 **Secure API Management**: Safe API key handling
 - 🏗️ **Modular Architecture**: Clean separation of frontend and backend
@@ -22,12 +27,14 @@ A modern, modular AI chat agent that promotes Texas tourism using various AI mod
 
 - Python 3.8 or higher
 - OpenRouter API key ([Get one here](https://openrouter.ai))
+- Supabase account ([Get one here](https://supabase.com)) for cost management features
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/travel-texas-ai-agent.git
+   git clone https://github.com/yourusername/
+   travel-texas-ai-agent.git
    cd travel-texas-ai-agent
    ```
 
@@ -36,12 +43,25 @@ A modern, modular AI chat agent that promotes Texas tourism using various AI mod
    pip install -r requirements.txt
    ```
 
-3. **Run the application**
+3. **Set up environment variables**
+   ```bash
+   cp env_example.txt .env
+   # Edit .env with your API keys
+   ```
+
+4. **Set up Supabase database (for cost management)**
+   ```bash
+   python setup.py
+   ```
+   - Follow the instructions to create database tables
+   - Or manually run `supabase_schema.sql` in your Supabase SQL Editor
+
+5. **Run the application**
    ```bash
    streamlit run main.py
    ```
 
-4. **Open your browser**
+6. **Open your browser**
    - Navigate to `http://localhost:8501`
    - Enter your OpenRouter API key in the sidebar
    - Start chatting about Texas!
