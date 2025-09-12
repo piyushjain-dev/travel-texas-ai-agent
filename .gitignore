@@ -150,4 +150,4 @@ Thumbs.db
 # API Keys and secrets
 .env.local
 .env.production
-secrets.toml
+# secrets.toml - commented out to allow placeholder file
