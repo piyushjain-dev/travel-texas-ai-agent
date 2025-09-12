@@ -14,15 +14,8 @@ class TravelTexasFrontend:
     """Frontend service for Travel Texas AI Agent"""
     
     def __init__(self):
-        self._backend = None
+        self.backend = TravelTexasBackend()
         self.init_session_state()
-    
-    @property
-    def backend(self):
-        """Lazy initialization of backend"""
-        if self._backend is None:
-            self._backend = TravelTexasBackend()
-        return self._backend
 
     def init_session_state(self):
         """Initialize Streamlit session state"""
