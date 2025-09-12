@@ -1,4 +1,3 @@
-
 """
 Frontend components for Travel Texas AI Agent
 Handles Streamlit UI, user interactions, and display logic
@@ -14,20 +13,35 @@ class TravelTexasFrontend:
     """Frontend service for Travel Texas AI Agent"""
     
     def __init__(self):
-        self.backend = TravelTexasBackend()
+        self._backend = None
         self.init_session_state()
+    
+    @property
+    def backend(self):
+        """Lazy initialization of backend"""
+        if self._backend is None:
+            self._backend = TravelTexasBackend()
+        return self._backend
 
     def init_session_state(self):
         """Initialize Streamlit session state"""
         if 'chat_history' not in st.session_state:
-            st.session_state.chat_history = [self.backend.get_welcome_message()]
+            # Use a simple welcome message to avoid backend initialization
+            welcome_msg = {
+                "role": "assistant", 
+                "content": "Howdy! Welcome to Travel Texas! I'm here to help you plan the perfect Texas adventure. What kind of experience are you looking for?"
+            }
+            st.session_state.chat_history = [welcome_msg]
 
         if 'token_usage' not in st.session_state:
             st.session_state.token_usage = {'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
 
-
         if 'selected_model' not in st.session_state:
-            st.session_state.selected_model = self.backend.default_model
+            # Use default model without backend initialization
+            st.session_state.selected_model = "google/gemini-2.5-flash"
+        
+        if 'is_processing' not in st.session_state:
+            st.session_state.is_processing = False
 
     def render_sidebar(self):
         """Render the sidebar with controls"""
@@ -63,11 +77,9 @@ class TravelTexasFrontend:
                 help="Select your preferred AI model"
             )
 
-            # Update selected model
             new_selection = model_options[selected_label]
             if new_selection != st.session_state.selected_model:
                 st.session_state.selected_model = new_selection
-                st.rerun()
 
             # Display current model info with pricing
             current_model = available_models[st.session_state.selected_model]
@@ -108,25 +120,23 @@ class TravelTexasFrontend:
                     st.metric("Total Tokens", "0")
                     st.metric("Total Cost", "$0.0000")
 
-            # Session Summary
-            session_summary = self.backend.get_session_summary()
-            if session_summary:
+            # Session Summary - Use cached data to avoid startup delay
+            if hasattr(st.session_state, 'token_usage') and st.session_state.token_usage['total_tokens'] > 0:
                 st.subheader("📈 Current Session")
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("Messages", session_summary['total_messages'])
-                    st.metric("Session Cost", f"${session_summary['total_cost']:.4f}")
+                    st.metric("Messages", len(st.session_state.chat_history) - 1)  # Exclude welcome message
+                    st.metric("Session Cost", f"${st.session_state.token_usage.get('total_cost', 0):.4f}")
                 with col2:
-                    st.metric("Input Tokens", f"{session_summary['total_input_tokens']:,}")
-                    st.metric("Output Tokens", f"{session_summary['total_output_tokens']:,}")
+                    st.metric("Input Tokens", f"{st.session_state.token_usage['input_tokens']:,}")
+                    st.metric("Output Tokens", f"{st.session_state.token_usage['output_tokens']:,}")
             
-            # Clear chat
             if st.button("🗑️ Clear Chat"):
                 st.session_state.chat_history = [self.backend.get_welcome_message()]
                 st.session_state.token_usage = {'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
                 # End current session
                 self.backend.end_cost_tracking_session()
-                st.rerun()
+                st.success("Chat cleared!")
             
             st.markdown("---")
 
@@ -202,103 +212,113 @@ class TravelTexasFrontend:
             st.markdown("---")
 
     def render_chat_history(self):
-        """Render the chat history with auto-scroll"""
-        # Create a container with auto-scroll
+        """Render the chat history with smooth scrolling"""
         chat_container = st.container()
         
         with chat_container:
-            # Add JavaScript for auto-scroll
-            st.markdown("""
-            <div class="chat-container" id="chat-container">
-            """, unsafe_allow_html=True)
-            
-            # Display chat history
-            for message in st.session_state.chat_history:
+            # Display chat history with better styling
+            for i, message in enumerate(st.session_state.chat_history):
                 with st.chat_message(message["role"]):
-                    st.write(message["content"])
-            
-        # Close container
-        st.markdown("</div>", unsafe_allow_html=True)
+                    if (message["role"] == "assistant" and 
+                        i == len(st.session_state.chat_history) - 1 and 
+                        message["content"] == "" and
+                        st.session_state.is_processing):
+                        self.stream_response_in_place(message, i)
+                    else:
+                        st.write(message["content"])
 
     def handle_user_input(self, model_config):
         """Handle user input and generate AI response"""
-        # Handle auto-prompt from helper buttons first
-        if st.session_state.get('selected_prompt'):
-            prompt = st.session_state.selected_prompt
-            st.session_state.selected_prompt = None  # Clear it immediately
-        else:
-            # Regular chat input
-            prompt = st.chat_input("Ask me about Texas adventures, food, culture, and more!")
+        if st.session_state.is_processing:
+            return
 
-        if prompt:
+        prompt = st.chat_input(
+            "Ask me about Texas adventures, food, culture, and more!",
+            disabled=st.session_state.is_processing
+        )
 
-            # Start cost tracking session if not already started
-            if not hasattr(st.session_state, 'cost_session_started'):
-                session_id = self.backend.start_cost_tracking_session(st.session_state.selected_model)
-                st.session_state.cost_session_started = True
-                st.session_state.cost_session_id = session_id
-
-            # Log user message for cost tracking
-            self.backend.log_user_message(prompt, st.session_state.selected_model)
+        if prompt and not st.session_state.is_processing:
+            st.session_state.is_processing = True
 
             # Add user message to chat history
             st.session_state.chat_history.append({
                 "role": "user",
                 "content": prompt
             })
+            
+            st.session_state.chat_history.append({
+                "role": "assistant",
+                "content": ""
+            })
+            
+            st.rerun()
 
-            # Display user message
-            with st.chat_message("user"):
-                st.write(prompt)
+    def stream_response_in_place(self, message, message_index):
+        """Stream response directly in the chat message placeholder"""
+        # Start cost tracking session if not already started
+        if not hasattr(st.session_state, 'cost_session_started'):
+            session_id = self.backend.start_cost_tracking_session(st.session_state.selected_model)
+            st.session_state.cost_session_started = True
+            st.session_state.cost_session_id = session_id
 
-            # Prepare messages for API - only include system prompt if it's the first message
-            if len(st.session_state.chat_history) == 1:  # Only welcome message exists
-                messages = [
-                    {"role": "system", "content": TEXAS_TOURISM_AGENT_PROMPT},
-                    *st.session_state.chat_history
-                ]
-            else:
-                messages = st.session_state.chat_history
+        # Get the user's last message
+        user_message = st.session_state.chat_history[-2]["content"]
+        
+        # Log user message for cost tracking
+        self.backend.log_user_message(user_message, st.session_state.selected_model)
 
-            # Call API and get streaming response
-            with st.chat_message("assistant"):
-                message_placeholder = st.empty()
-                full_response = ""
+        # Prepare messages for API
+        messages = [
+            {"role": "system", "content": TEXAS_TOURISM_AGENT_PROMPT},
+            *st.session_state.chat_history[:-1]  # Exclude the empty assistant message
+        ]
+        
+        def response_generator():
+            full_response = ""
+            try:
+                model_config = self.backend.get_model_config(st.session_state.selected_model)
+                for chunk in self.backend.call_openrouter_api_streaming(messages, model_config):
+                    if chunk:
+                        full_response += chunk
+                        yield chunk
                 
-                try:
-                    # Stream the response with smooth character-by-character effect
-                    for chunk in self.backend.call_openrouter_api_streaming(messages, model_config):
-                        if chunk:
-                            full_response += chunk
-                            message_placeholder.write(full_response)
-                            time.sleep(0.01)  # Slightly slower for stability
-                    
-                    # No final write needed - streaming ends cleanly
-                    
-                    # Log assistant message for cost tracking
-                    self.backend.log_assistant_message(full_response, st.session_state.selected_model)
-                    
-                    # Add assistant response to chat history
-                    st.session_state.chat_history.append({
-                        "role": "assistant",
-                        "content": full_response
-                    })
+                st.session_state.chat_history[message_index]["content"] = full_response
+                
+                # Log assistant message for cost tracking
+                self.backend.log_assistant_message(full_response, st.session_state.selected_model)
 
-                    # Update token usage with breakdown
-                    user_input_tokens = self.backend.count_tokens(prompt)
+                # Update token usage
+                user_input_tokens = self.backend.count_tokens(user_message)
+                estimated_output_tokens = self.backend.count_tokens(full_response)
+                
+                if not hasattr(st.session_state, 'system_prompt_counted'):
+                    st.session_state.system_prompt_counted = True
                     system_prompt_tokens = self.backend.count_tokens(TEXAS_TOURISM_AGENT_PROMPT)
                     total_input_tokens = user_input_tokens + system_prompt_tokens
-                    estimated_output_tokens = self.backend.count_tokens(full_response)
-                    
-                    st.session_state.token_usage['input_tokens'] += total_input_tokens
-                    st.session_state.token_usage['output_tokens'] += estimated_output_tokens
-                    st.session_state.token_usage['total_tokens'] += total_input_tokens + estimated_output_tokens
-                    
-                    # Rerun to clear input box and update metrics
-                    st.rerun()
-                    
-                except Exception as e:
-                    st.error(f"Error generating response: {str(e)}")
+                else:
+                    total_input_tokens = user_input_tokens
+                
+                st.session_state.token_usage['input_tokens'] += total_input_tokens
+                st.session_state.token_usage['output_tokens'] += estimated_output_tokens
+                st.session_state.token_usage['total_tokens'] += total_input_tokens + estimated_output_tokens
+                
+            except Exception as e:
+                error_msg = f"Error: {str(e)}"
+                st.session_state.chat_history[message_index]["content"] = error_msg
+                yield error_msg
+            
+            finally:
+                st.session_state.is_processing = False
+        
+        st.write_stream(response_generator())
+
+    def check_pending_response(self):
+        """Check if there's a pending response to stream - no longer needed"""
+        pass
+
+    def stream_response(self, prompt, model_config):
+        """Stream the assistant response - no longer needed"""
+        pass
 
     def render_analytics_dashboard(self):
         """Render the analytics dashboard"""
@@ -374,16 +394,37 @@ class TravelTexasFrontend:
 
     def render_main_app(self):
         """Render the main application"""
-        # Load external CSS file with caching
-        @st.cache_data
-        def load_css():
-            try:
-                with open('styles.css', 'r') as f:
-                    return f.read()
-            except FileNotFoundError:
-                return "/* CSS file not found */"
+        try:
+            with open('styles.css', 'r') as f:
+                css_content = f.read()
+        except FileNotFoundError:
+            css_content = """
+            /* ChatGPT-like styling */
+            .stChatMessage {
+                margin-bottom: 1rem;
+                animation: fadeIn 0.3s ease-in;
+            }
+            
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            
+            /* Keep input at bottom */
+            .stChatInput {
+                position: sticky;
+                bottom: 0;
+                background: white;
+                z-index: 100;
+                margin-top: 2rem;
+            }
+            
+            /* Smooth scrolling */
+            .main .block-container {
+                padding-bottom: 6rem;
+            }
+            """
         
-        css_content = load_css()
         st.markdown(f"""
         <style>
         {css_content}
@@ -403,30 +444,10 @@ class TravelTexasFrontend:
             # Render agent info
             self.render_agent_info(model_config)
 
-            # Render chat history
             self.render_chat_history()
 
-            # Handle user input
+            # Handle user input - this stays at the bottom
             self.handle_user_input(model_config)
-            
-            # Optimized auto-scroll script
-            st.markdown("""
-            <script>
-            // Smooth auto-scroll function
-            function scrollToBottom() {
-                const container = document.getElementById('chat-container');
-                if (container) {
-                    container.scrollTo({
-                        top: container.scrollHeight,
-                        behavior: 'smooth'
-                    });
-                }
-            }
-            
-            // Auto-scroll after content loads
-            setTimeout(scrollToBottom, 50);
-            </script>
-            """, unsafe_allow_html=True)
         
         with tab2:
             self.render_analytics_dashboard()

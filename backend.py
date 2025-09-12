@@ -9,7 +9,9 @@ import time
 import tiktoken
 import os
 import streamlit as st
-from typing import Dict
+import asyncio
+import aiohttp
+from typing import Dict, AsyncGenerator
 from dotenv import load_dotenv
 from agent_prompt import TEXAS_TOURISM_AGENT_PROMPT, WELCOME_MESSAGE
 from cost_engine import CostCalculationEngine
@@ -187,13 +189,12 @@ class TravelTexasBackend:
             "model": model_config['model'],
             "messages": messages,
             "temperature": 0.7,
-
             "max_tokens": 2000,
             "stream": True
         }
 
         try:
-            response = requests.post(url, headers=headers, json=data, timeout=30, stream=True)
+            response = requests.post(url, headers=headers, json=data, timeout=15, stream=True)
             response.raise_for_status()
             
             for line in response.iter_lines():
@@ -213,6 +214,55 @@ class TravelTexasBackend:
                             continue
                             
         except requests.exceptions.RequestException as e:
+            yield f"API Error: {str(e)}"
+        except Exception as e:
+            yield f"Error: {str(e)}"
+
+    async def call_openrouter_api_streaming_async(self, messages, model_config) -> AsyncGenerator[str, None]:
+        """Call OpenRouter API with async streaming - yields content chunks"""
+        # Get API key from environment variables (works for both local and Streamlit Cloud)
+        api_key = os.getenv('OPENROUTER_API_KEY')
+        
+        if not api_key:
+            raise ValueError("OpenRouter API key not found in environment variables")
+        
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "X-Title": "Travel Texas Chat Agent"
+        }
+
+        data = {
+            "model": model_config['model'],
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 2000,
+            "stream": True
+        }
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, json=data, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                    response.raise_for_status()
+                    
+                    async for line in response.content:
+                        if line:
+                            line_str = line.decode('utf-8')
+                            if line_str.startswith('data: '):
+                                data_str = line_str[6:]  # Remove 'data: ' prefix
+                                if data_str.strip() == '[DONE]':
+                                    break
+                                try:
+                                    data_json = json.loads(data_str)
+                                    if 'choices' in data_json and len(data_json['choices']) > 0:
+                                        delta = data_json['choices'][0].get('delta', {})
+                                        if 'content' in delta:
+                                            yield delta['content']
+                                except json.JSONDecodeError:
+                                    continue
+                                    
+        except aiohttp.ClientError as e:
             yield f"API Error: {str(e)}"
         except Exception as e:
             yield f"Error: {str(e)}"
