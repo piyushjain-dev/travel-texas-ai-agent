@@ -4,6 +4,7 @@ Handles database operations for cost tracking, sessions, and analytics
 """
 
 import os
+import streamlit as st
 from supabase import create_client, Client
 from typing import Dict, List, Optional
 import json
@@ -15,8 +16,15 @@ class SupabaseClient:
     """Supabase client for database operations"""
     
     def __init__(self):
-        self.url = os.getenv("SUPABASE_URL", "https://tvwygzsooodvzeyhkezu.supabase.co")
-        self.key = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d3lnenNvb29kdnpleWhrZXp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1Nzk2NTUsImV4cCI6MjA3MzE1NTY1NX0.hrU-itiLF53QqudWKFuz7jCpCKIEtoCD0ymkNMqIQ2Y")
+        # Get Supabase credentials from Streamlit secrets (for deployment) or environment variables (for local)
+        try:
+            # Try Streamlit secrets first (for deployment)
+            self.url = st.secrets["SUPABASE_URL"]
+            self.key = st.secrets["SUPABASE_KEY"]
+        except:
+            # Fallback to environment variables (for local development)
+            self.url = os.getenv("SUPABASE_URL", "https://tvwygzsooodvzeyhkezu.supabase.co")
+            self.key = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d3lnenNvb29kdnpleWhrZXp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1Nzk2NTUsImV4cCI6MjA3MzE1NTY1NX0.hrU-itiLF53QqudWKFuz7jCpCKIEtoCD0ymkNMqIQ2Y")
         
         try:
             self.supabase: Client = create_client(self.url, self.key)
