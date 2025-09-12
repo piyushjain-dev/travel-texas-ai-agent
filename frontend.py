@@ -270,11 +270,10 @@ class TravelTexasFrontend:
                     for chunk in self.backend.call_openrouter_api_streaming(messages, model_config):
                         if chunk:
                             full_response += chunk
-                            message_placeholder.write(full_response + "▌")
+                            message_placeholder.write(full_response)
                             time.sleep(0.01)  # Slightly slower for stability
                     
-                    # Final update to remove cursor cleanly
-                    message_placeholder.write(full_response)
+                    # No final write needed - streaming ends cleanly
                     
                     # Log assistant message for cost tracking
                     self.backend.log_assistant_message(full_response, st.session_state.selected_model)
