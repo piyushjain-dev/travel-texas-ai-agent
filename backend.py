@@ -30,20 +30,45 @@ class TravelTexasBackend:
         self.default_model = self.models_config.get("default_model", "openai/gpt-4.1-mini")
         self.system_prompt = TEXAS_TOURISM_AGENT_PROMPT
         
-        # Initialize cost management system with shared Supabase client
-        from supabase_client import SupabaseClient
-        shared_supabase = SupabaseClient()
+        # Lazy initialization - only initialize when needed
+        self._supabase_client = None
+        self._cost_engine = None
+        self._budget_manager = None
+        self._analytics_dashboard = None
+    
+    def _get_supabase_client(self):
+        """Lazy initialization of Supabase client"""
+        if self._supabase_client is None:
+            from supabase_client import SupabaseClient
+            self._supabase_client = SupabaseClient()
+        return self._supabase_client
+    
+    def _get_cost_engine(self):
+        """Lazy initialization of cost engine"""
+        if self._cost_engine is None:
+            from cost_engine import CostCalculationEngine
+            self._cost_engine = CostCalculationEngine()
+            self._cost_engine.supabase = self._get_supabase_client()
+        return self._cost_engine
+    
+    def _get_budget_manager(self):
+        """Lazy initialization of budget manager"""
+        if self._budget_manager is None:
+            from budget_manager import BudgetManager
+            self._budget_manager = BudgetManager()
+            self._budget_manager.supabase = self._get_supabase_client()
+        return self._budget_manager
+    
+    def _get_analytics_dashboard(self):
+        """Lazy initialization of analytics dashboard"""
+        if self._analytics_dashboard is None:
+            from analytics_dashboard import AnalyticsDashboard
+            self._analytics_dashboard = AnalyticsDashboard()
+            self._analytics_dashboard.cost_engine.supabase = self._get_supabase_client()
+            self._analytics_dashboard.budget_manager.supabase = self._get_supabase_client()
+        return self._analytics_dashboard
         
-        self.cost_engine = CostCalculationEngine()
-        self.cost_engine.supabase = shared_supabase
-        
-        self.budget_manager = BudgetManager()
-        self.budget_manager.supabase = shared_supabase
-        
-        self.analytics_dashboard = AnalyticsDashboard()
-        self.analytics_dashboard.cost_engine.supabase = shared_supabase
-        self.analytics_dashboard.budget_manager.supabase = shared_supabase
-        
+    @st.cache_data
     def load_models_config(self):
         """Load models configuration from JSON file"""
         try:
@@ -182,7 +207,7 @@ class TravelTexasBackend:
             "model": model_config['model'],
             "messages": messages,
             "temperature": 0.7,
-            "max_tokens": 400,
+            "max_tokens": 2000,
             "stream": True
         }
 

@@ -14,8 +14,15 @@ class TravelTexasFrontend:
     """Frontend service for Travel Texas AI Agent"""
     
     def __init__(self):
-        self.backend = TravelTexasBackend()
+        self._backend = None
         self.init_session_state()
+    
+    @property
+    def backend(self):
+        """Lazy initialization of backend"""
+        if self._backend is None:
+            self._backend = TravelTexasBackend()
+        return self._backend
 
     def init_session_state(self):
         """Initialize Streamlit session state"""
@@ -372,13 +379,16 @@ class TravelTexasFrontend:
 
     def render_main_app(self):
         """Render the main application"""
-        # Load external CSS file
-        try:
-            with open('styles.css', 'r') as f:
-                css_content = f.read()
-        except FileNotFoundError:
-            css_content = "/* CSS file not found */"
+        # Load external CSS file with caching
+        @st.cache_data
+        def load_css():
+            try:
+                with open('styles.css', 'r') as f:
+                    return f.read()
+            except FileNotFoundError:
+                return "/* CSS file not found */"
         
+        css_content = load_css()
         st.markdown(f"""
         <style>
         {css_content}
