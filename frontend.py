@@ -258,11 +258,14 @@ class TravelTexasFrontend:
             with st.chat_message("user"):
                 st.write(prompt)
 
-            # Prepare messages for API
-            messages = [
-                {"role": "system", "content": TEXAS_TOURISM_AGENT_PROMPT},
-                *st.session_state.chat_history
-            ]
+            # Prepare messages for API - only include system prompt if it's the first message
+            if len(st.session_state.chat_history) == 1:  # Only welcome message exists
+                messages = [
+                    {"role": "system", "content": TEXAS_TOURISM_AGENT_PROMPT},
+                    *st.session_state.chat_history
+                ]
+            else:
+                messages = st.session_state.chat_history
 
             # Call API and get streaming response
             with st.chat_message("assistant"):

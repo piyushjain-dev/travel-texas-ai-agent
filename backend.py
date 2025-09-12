@@ -207,6 +207,7 @@ class TravelTexasBackend:
             "model": model_config['model'],
             "messages": messages,
             "temperature": 0.7,
+
             "max_tokens": 2000,
             "stream": True
         }
