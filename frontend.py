@@ -5,6 +5,7 @@ Handles Streamlit UI, user interactions, and display logic
 
 import streamlit as st
 import time
+import json
 from backend import TravelTexasBackend
 from agent_prompt_condensed import TEXAS_TOURISM_AGENT_PROMPT_CONDENSED as TEXAS_TOURISM_AGENT_PROMPT
 
@@ -42,6 +43,15 @@ class TravelTexasFrontend:
         
         if 'is_processing' not in st.session_state:
             st.session_state.is_processing = False
+
+        if 'cost_session_started' not in st.session_state:
+            st.session_state.cost_session_started = False
+
+        if 'system_prompt_counted' not in st.session_state:
+            st.session_state.system_prompt_counted = False
+
+        if 'force_sidebar_refresh' not in st.session_state:
+            st.session_state.force_sidebar_refresh = False
 
     def render_sidebar(self):
         """Render the sidebar with controls"""
@@ -89,8 +99,8 @@ class TravelTexasFrontend:
             
             st.markdown("---")
 
-            # Token usage summary with real costs
-            st.subheader("📊 Usage & Costs")
+            # Token usage summary with OpenRouter's exact data
+            st.subheader("📊 OpenRouter Token Usage")
             usage = st.session_state.token_usage
             
             # Calculate real costs for current model
@@ -120,24 +130,13 @@ class TravelTexasFrontend:
                     st.metric("Total Tokens", "0")
                     st.metric("Total Cost", "$0.0000")
 
-            # Session Summary - Use cached data to avoid startup delay
-            if hasattr(st.session_state, 'token_usage') and st.session_state.token_usage['total_tokens'] > 0:
-                st.subheader("📈 Current Session")
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("Messages", len(st.session_state.chat_history) - 1)  # Exclude welcome message
-                    st.metric("Session Cost", f"${st.session_state.token_usage.get('total_cost', 0):.4f}")
-                with col2:
-                    st.metric("Input Tokens", f"{st.session_state.token_usage['input_tokens']:,}")
-                    st.metric("Output Tokens", f"{st.session_state.token_usage['output_tokens']:,}")
-            
             if st.button("🗑️ Clear Chat"):
                 st.session_state.chat_history = [self.backend.get_welcome_message()]
                 st.session_state.token_usage = {'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
                 # End current session
                 self.backend.end_cost_tracking_session()
                 st.success("Chat cleared!")
-            
+        
             st.markdown("---")
 
     def render_header(self, model_config):
@@ -255,8 +254,7 @@ class TravelTexasFrontend:
 
     def stream_response_in_place(self, message, message_index):
         """Stream response directly in the chat message placeholder"""
-        # Start cost tracking session if not already started
-        if not hasattr(st.session_state, 'cost_session_started'):
+        if not st.session_state.cost_session_started:
             session_id = self.backend.start_cost_tracking_session(st.session_state.selected_model)
             st.session_state.cost_session_started = True
             st.session_state.cost_session_id = session_id
@@ -275,32 +273,33 @@ class TravelTexasFrontend:
         
         def response_generator():
             full_response = ""
+            token_usage_data = None
             try:
                 model_config = self.backend.get_model_config(st.session_state.selected_model)
                 for chunk in self.backend.call_openrouter_api_streaming(messages, model_config):
                     if chunk:
+                        # Check if this chunk contains token usage data
+                        if chunk.startswith("\n\n[TOKEN_USAGE:"):
+                            try:
+                                token_json = chunk.replace("\n\n[TOKEN_USAGE:", "").replace("]", "")
+                                token_usage_data = json.loads(token_json)
+                                continue  # Skip this chunk from response
+                            except:
+                                pass
+                        
                         full_response += chunk
                         yield chunk
                 
-                st.session_state.chat_history[message_index]["content"] = full_response
+                # Clean response (remove any token usage markers)
+                clean_response = full_response.replace("\n\n[TOKEN_USAGE:", "").split("]")[0]
+                st.session_state.chat_history[message_index]["content"] = clean_response
                 
                 # Log assistant message for cost tracking
-                self.backend.log_assistant_message(full_response, st.session_state.selected_model)
-
-                # Update token usage
-                user_input_tokens = self.backend.count_tokens(user_message)
-                estimated_output_tokens = self.backend.count_tokens(full_response)
+                self.backend.log_assistant_message(clean_response, st.session_state.selected_model)
                 
-                if not hasattr(st.session_state, 'system_prompt_counted'):
-                    st.session_state.system_prompt_counted = True
-                    system_prompt_tokens = self.backend.count_tokens(TEXAS_TOURISM_AGENT_PROMPT)
-                    total_input_tokens = user_input_tokens + system_prompt_tokens
-                else:
-                    total_input_tokens = user_input_tokens
-                
-                st.session_state.token_usage['input_tokens'] += total_input_tokens
-                st.session_state.token_usage['output_tokens'] += estimated_output_tokens
-                st.session_state.token_usage['total_tokens'] += total_input_tokens + estimated_output_tokens
+                # Store token usage data for later processing
+                if token_usage_data:
+                    st.session_state.last_token_usage = token_usage_data
                 
             except Exception as e:
                 error_msg = f"Error: {str(e)}"
@@ -310,7 +309,72 @@ class TravelTexasFrontend:
             finally:
                 st.session_state.is_processing = False
         
+        # Stream the response
         st.write_stream(response_generator())
+        
+        # Use OpenRouter's actual token data if available, otherwise fallback to estimation
+        if st.session_state.chat_history[message_index]["content"] and not st.session_state.chat_history[message_index]["content"].startswith("Error"):
+            full_response = st.session_state.chat_history[message_index]["content"]
+            
+            # Check if we have OpenRouter token data
+            if hasattr(st.session_state, 'last_token_usage') and st.session_state.last_token_usage:
+                # Use OpenRouter's EXACT token data (no manipulation)
+                openrouter_tokens = st.session_state.last_token_usage
+                input_tokens = openrouter_tokens.get('prompt_tokens', 0)
+                output_tokens = openrouter_tokens.get('completion_tokens', 0)
+                total_tokens = openrouter_tokens.get('total_tokens', input_tokens + output_tokens)
+                
+                # Log OpenRouter's exact data
+                print(f"🔍 OpenRouter EXACT Token Data:")
+                print(f"   Input Tokens (prompt_tokens): {input_tokens}")
+                print(f"   Output Tokens (completion_tokens): {output_tokens}")
+                print(f"   Total Tokens: {total_tokens}")
+                print(f"   Raw Data: {openrouter_tokens}")
+                
+                # Store OpenRouter's exact data (no subtraction or manipulation)
+                st.session_state.token_usage['input_tokens'] = input_tokens
+                st.session_state.token_usage['output_tokens'] = output_tokens
+                st.session_state.token_usage['total_tokens'] = total_tokens
+                
+                # Clear the token usage data
+                delattr(st.session_state, 'last_token_usage')
+                
+            else:
+                # Fallback to tiktoken estimation if OpenRouter data not available
+                user_input_tokens = self.backend.count_tokens(user_message)
+                estimated_output_tokens = self.backend.count_tokens(full_response)
+                
+                # Count system prompt tokens only once per session
+                if not st.session_state.system_prompt_counted:
+                    st.session_state.system_prompt_counted = True
+                    system_prompt_tokens = self.backend.count_tokens(TEXAS_TOURISM_AGENT_PROMPT)
+                    total_input_tokens = user_input_tokens + system_prompt_tokens
+                    
+                    # Log token breakdown for debugging (first message)
+                    print(f"🔍 Tiktoken Estimation (First Message):")
+                    print(f"   User Message: '{user_message}'")
+                    print(f"   User Tokens: {user_input_tokens}")
+                    print(f"   System Prompt Tokens: {system_prompt_tokens}")
+                    print(f"   Total Input Tokens: {total_input_tokens}")
+                    print(f"   Output Tokens: {estimated_output_tokens}")
+                else:
+                    total_input_tokens = user_input_tokens
+                    
+                    # Log token breakdown for debugging (subsequent messages)
+                    print(f"🔍 Tiktoken Estimation (Subsequent Message):")
+                    print(f"   User Message: '{user_message}'")
+                    print(f"   User Tokens: {user_input_tokens}")
+                    print(f"   Output Tokens: {estimated_output_tokens}")
+                
+                # Store ONLY current message data (not cumulative)
+                st.session_state.token_usage['input_tokens'] = total_input_tokens
+                st.session_state.token_usage['output_tokens'] = estimated_output_tokens
+                st.session_state.token_usage['total_tokens'] = total_input_tokens + estimated_output_tokens
+            
+            st.session_state.force_sidebar_refresh = True
+            
+            # Force sidebar refresh
+            st.rerun()
 
     def check_pending_response(self):
         """Check if there's a pending response to stream - no longer needed"""
