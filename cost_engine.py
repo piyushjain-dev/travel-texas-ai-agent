@@ -150,18 +150,17 @@ class CostCalculationEngine:
         return (cost_data["total_cost"] / total_tokens) * 1_000_000
     
     def generate_cost_comparison_table(self) -> List[Dict]:
-        """Generate cost comparison table like the example"""
+        """Generate cost comparison table with real usage data from Supabase"""
         try:
+            # Load model configurations
             with open("models_config.json", "r") as f:
                 config = json.load(f)
                 models = config.get("models", {})
             
             comparison_data = []
             
-            # Standard session parameters
-            messages_per_session = 5
-            input_tokens_per_message = 350
-            output_tokens_per_message = 500
+            # Get real usage data from Supabase
+            usage_data = self._get_real_usage_data()
             
             for model_id, model_info in models.items():
                 if not model_info.get("available", True):
@@ -171,16 +170,35 @@ class CostCalculationEngine:
                 input_cost_per_million = pricing.get("input_tokens_per_million", 0)
                 output_cost_per_million = pricing.get("output_tokens_per_million", 0)
                 
-                # Calculate costs
-                total_input_tokens = messages_per_session * input_tokens_per_message
-                total_output_tokens = messages_per_session * output_tokens_per_message
+                # Get real usage data for this model
+                model_usage = usage_data.get(model_id, {})
                 
-                input_cost = (total_input_tokens / 1_000_000) * input_cost_per_million
-                output_cost = (total_output_tokens / 1_000_000) * output_cost_per_million
-                total_cost_per_session = input_cost + output_cost
+                # Use real data if available, otherwise use 0/nil
+                messages_per_session = model_usage.get("avg_messages_per_session", 0)
+                input_tokens_per_message = model_usage.get("avg_input_tokens_per_message", 0)
+                output_tokens_per_message = model_usage.get("avg_output_tokens_per_message", 0)
                 
-                total_tokens = total_input_tokens + total_output_tokens
-                cost_per_million = (total_cost_per_session / total_tokens) * 1_000_000
+                # Calculate costs (handle 0 values)
+                if messages_per_session == 0 or input_tokens_per_message == 0 or output_tokens_per_message == 0:
+                    # No real data available - show 0/nil values
+                    total_input_tokens = 0
+                    total_output_tokens = 0
+                    input_cost = 0
+                    output_cost = 0
+                    total_cost_per_session = 0
+                    total_tokens = 0
+                    cost_per_million = 0
+                else:
+                    # Real data available - calculate normally
+                    total_input_tokens = messages_per_session * input_tokens_per_message
+                    total_output_tokens = messages_per_session * output_tokens_per_message
+                    
+                    input_cost = (total_input_tokens / 1_000_000) * input_cost_per_million
+                    output_cost = (total_output_tokens / 1_000_000) * output_cost_per_million
+                    total_cost_per_session = input_cost + output_cost
+                    
+                    total_tokens = total_input_tokens + total_output_tokens
+                    cost_per_million = (total_cost_per_session / total_tokens) * 1_000_000
                 
                 comparison_data.append({
                     "model_id": model_id,
@@ -193,7 +211,9 @@ class CostCalculationEngine:
                     "input_tokens_per_message": input_tokens_per_message,
                     "output_tokens_per_message": output_tokens_per_message,
                     "total_cost_per_session": round(total_cost_per_session, 6),
-                    "cost_per_million": round(cost_per_million, 2)
+                    "cost_per_million": round(cost_per_million, 2),
+                    "total_sessions": model_usage.get("total_sessions", 0),
+                    "total_cost": model_usage.get("total_cost", 0)
                 })
             
             # Sort by cost per million (cheapest first)
@@ -204,6 +224,63 @@ class CostCalculationEngine:
         except Exception as e:
             print(f"❌ Error generating cost comparison: {e}")
             return []
+    
+    def _get_real_usage_data(self) -> Dict:
+        """Get real usage data from Supabase"""
+        try:
+            if not self.supabase:
+                return {}
+            
+            # Get analytics data from Supabase
+            analytics_data = self.supabase.get_analytics_data()
+            
+            if not analytics_data:
+                return {}
+            
+            # Process the data to get averages per model
+            model_stats = {}
+            
+            for record in analytics_data:
+                model_id = record.get("model_used")  # Changed from "model_id" to "model_used"
+                if not model_id:
+                    continue
+                
+                if model_id not in model_stats:
+                    model_stats[model_id] = {
+                        "total_sessions": 0,
+                        "total_messages": 0,
+                        "total_input_tokens": 0,
+                        "total_output_tokens": 0,
+                        "total_cost": 0
+                    }
+                
+                # Use actual field names from Supabase data
+                model_stats[model_id]["total_sessions"] += 1  # Each record is one session
+                model_stats[model_id]["total_messages"] += record.get("total_messages", 0)
+                model_stats[model_id]["total_input_tokens"] += record.get("total_input_tokens", 0)
+                model_stats[model_id]["total_output_tokens"] += record.get("total_output_tokens", 0)
+                model_stats[model_id]["total_cost"] += record.get("total_cost", 0)
+            
+            # Calculate averages
+            for model_id, stats in model_stats.items():
+                if stats["total_sessions"] > 0:
+                    stats["avg_messages_per_session"] = stats["total_messages"] / stats["total_sessions"]
+                    stats["avg_input_tokens_per_message"] = stats["total_input_tokens"] / max(stats["total_messages"], 1)
+                    stats["avg_output_tokens_per_message"] = stats["total_output_tokens"] / max(stats["total_messages"], 1)
+                else:
+                    stats["avg_messages_per_session"] = 5
+                    stats["avg_input_tokens_per_message"] = 350
+                    stats["avg_output_tokens_per_message"] = 500
+            
+            print(f"📊 Real usage data processed: {len(model_stats)} models")
+            for model_id, stats in model_stats.items():
+                print(f"   {model_id}: {stats['total_sessions']} sessions, {stats['total_messages']} messages")
+            
+            return model_stats
+            
+        except Exception as e:
+            print(f"Error getting real usage data: {e}")
+            return {}
     
     def get_historical_data(self, days: int = 30) -> Dict:
         """Get historical usage data"""

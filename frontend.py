@@ -6,6 +6,7 @@ Handles Streamlit UI, user interactions, and display logic
 import streamlit as st
 import time
 from backend import TravelTexasBackend
+from agent_prompt_condensed import TEXAS_TOURISM_AGENT_PROMPT_CONDENSED as TEXAS_TOURISM_AGENT_PROMPT
 
 
 class TravelTexasFrontend:
@@ -23,8 +24,6 @@ class TravelTexasFrontend:
         if 'token_usage' not in st.session_state:
             st.session_state.token_usage = {'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
 
-        if 'openrouter_key' not in st.session_state:
-            st.session_state.openrouter_key = ""
 
         if 'selected_model' not in st.session_state:
             st.session_state.selected_model = self.backend.default_model
@@ -35,44 +34,6 @@ class TravelTexasFrontend:
             st.image("https://www.traveltexas.com/sites/default/files/tto_logo_stacked.png", width=200)
             st.title("Travel Texas AI Agent")
             
-            # Banner Image
-            st.image("https://www.traveltexas.com/sites/default/files/texas-banner-hero.jpg", 
-                    width=180, caption="Discover Texas!")
-            
-            # Call-to-Action Button (below banner)
-            if st.button(
-                "🚀 Explore Texas Now!",
-                key="sidebar_cta_button",
-                help="Visit Travel Texas website",
-                width='stretch',
-                type="primary"
-            ):
-                st.markdown("""
-                <div style="text-align: center; padding: 15px; background-color: #f0f8ff; border-radius: 10px; margin: 10px 0;">
-                    <h4>🌟 Ready to Explore Texas? 🌟</h4>
-                    <p>Click below to discover amazing experiences!</p>
-                    <a href="https://www.traveltexas.com" target="_blank" style="
-                        display: inline-block;
-                        background-color: #ff6b6b;
-                        color: white;
-                        padding: 10px 20px;
-                        text-decoration: none;
-                        border-radius: 20px;
-                        font-weight: bold;
-                    ">Visit TravelTexas.com</a>
-                </div>
-                """, unsafe_allow_html=True)
-
-            # API Key input
-            api_key = st.text_input(
-                "OpenRouter API Key",
-                value=st.session_state.openrouter_key,
-                type="password",
-                help="Get your API key from https://openrouter.ai"
-            )
-
-            if api_key != st.session_state.openrouter_key:
-                st.session_state.openrouter_key = api_key
 
             st.markdown("---")
 
@@ -113,33 +74,6 @@ class TravelTexasFrontend:
             input_cost = pricing.get('input_tokens_per_million', 0)
             output_cost = pricing.get('output_tokens_per_million', 0)
             
-            # Show cost estimation for typical conversation
-            estimated_cost = self.backend.estimate_conversation_cost(st.session_state.selected_model)
-            
-            st.info(f"""
-            **Current Model:** {current_model['emoji']} {current_model['name']}
-            
-            **Provider:** {current_model.get('provider', 'Unknown')}
-            
-            **Pricing:** ${input_cost:.2f} input / ${output_cost:.2f} output per 1M tokens
-            
-            **Est. Cost:** ~${estimated_cost['total_cost']:.4f} per conversation
-            """)
-            
-            # Model comparison
-            if st.checkbox("📊 Show Model Comparison", help="Compare all available models"):
-                comparison_data = self.backend.get_model_comparison()
-                
-                st.subheader("💰 Cost Comparison")
-                for model in comparison_data:
-                    with st.expander(f"{model['emoji']} {model['name']} - ${model['estimated_conversation_cost']:.4f}/conversation"):
-                        st.write(f"**Provider:** {model['provider']}")
-                        st.write(f"**Description:** {model['description']}")
-                        st.write(f"**Input Cost:** ${model['input_cost_per_million']:.2f}/1M tokens")
-                        st.write(f"**Output Cost:** ${model['output_cost_per_million']:.2f}/1M tokens")
-                        st.write(f"**Capabilities:** {', '.join(model['capabilities'])}")
-                        st.write(f"**Estimated Cost:** ${model['estimated_conversation_cost']:.4f} per conversation")
-
             st.markdown("---")
 
             # Token usage summary with real costs
@@ -175,96 +109,7 @@ class TravelTexasFrontend:
 
             st.markdown("---")
 
-            # Cost Management Section
-            st.subheader("💰 Cost Management")
             
-            # Budget Status
-            budget_status = self.backend.get_budget_status("daily")
-            if budget_status["status"] != "no_budget":
-                st.info(f"""
-                **Daily Budget:** ${budget_status['limit_amount']:.2f}
-                
-                **Spent:** ${budget_status['current_spent']:.2f}
-                
-                **Remaining:** ${budget_status['remaining']:.2f}
-                
-                **Status:** {budget_status['message']}
-                """)
-            else:
-                st.warning("No daily budget set")
-                
-                # Smart Budget Suggestions
-                st.info("💡 **Smart Suggestions:**")
-                analytics_data = self.backend.get_analytics_data(7)  # Last 7 days
-                
-                if analytics_data.get('total_cost', 0) > 0:
-                    avg_daily = analytics_data['total_cost'] / 7
-                    suggested_daily = avg_daily * 1.5  # 50% buffer
-                    suggested_monthly = suggested_daily * 30
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button(f"💡 Set ${suggested_daily:.2f}/day", key="suggested_daily"):
-                            if self.backend.create_budget("daily", suggested_daily):
-                                st.success(f"✅ Daily budget: ${suggested_daily:.2f}")
-                                st.rerun()
-                    
-                    with col2:
-                        if st.button(f"💡 Set ${suggested_monthly:.2f}/month", key="suggested_monthly"):
-                            if self.backend.create_budget("monthly", suggested_monthly):
-                                st.success(f"✅ Monthly budget: ${suggested_monthly:.2f}")
-                                st.rerun()
-                    
-                    st.caption(f"Based on your last 7 days usage (avg: ${avg_daily:.2f}/day)")
-                else:
-                    st.caption("Start using the app to get personalized budget suggestions!")
-
-                
-                # Quick Setup Button
-                st.markdown("---")
-                if st.button("🚀 Quick Setup Budget", width='stretch', key="quick_setup"):
-                    if self.backend.create_budget("daily", 5.00):
-                        st.success("✅ Daily budget: $5.00")
-                        st.rerun()
-            
-            # Budget Management
-            with st.expander("🎯 Budget Settings"):
-                budget_type = st.selectbox("Budget Type", ["daily", "monthly", "total"])
-                
-                # Quick Budget Presets
-                st.subheader("💰 Quick Presets")
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    if st.button("$5/day", key="preset_5_daily"):
-                        if self.backend.create_budget("daily", 5.00):
-                            st.success("✅ Daily budget: $5.00")
-                            st.rerun()
-                
-                with col2:
-                    if st.button("$20/month", key="preset_20_monthly"):
-                        if self.backend.create_budget("monthly", 20.00):
-                            st.success("✅ Monthly budget: $20.00")
-                            st.rerun()
-                
-                with col3:
-                    if st.button("$50/month", key="preset_50_monthly"):
-                        if self.backend.create_budget("monthly", 50.00):
-                            st.success("✅ Monthly budget: $50.00")
-                            st.rerun()
-                
-                st.markdown("---")
-                
-                # Custom Budget
-                st.subheader("⚙️ Custom Budget")
-                budget_amount = st.number_input("Budget Amount ($)", min_value=0.01, value=10.00, step=0.01)
-                
-                if st.button("Set Custom Budget"):
-                    if self.backend.create_budget(budget_type, budget_amount):
-                        st.success(f"✅ {budget_type.title()} budget: ${budget_amount:.2f}")
-                        st.rerun()
-                    else:
-                        st.error("Failed to set budget")
             
             # Session Summary
             session_summary = self.backend.get_session_summary()
@@ -294,23 +139,36 @@ class TravelTexasFrontend:
         st.markdown("**Chat with our AI agent to discover amazing Texas experiences and exclusive deals!**")
 
     def render_agent_info(self, model_config):
-        """Render agent information card"""
+        """Render banner image and call-to-action button"""
         col1, col2, col3 = st.columns([1, 2, 1])
 
-        with col2:  # Center the chat interface
-            # Agent header with model details
-            pricing = model_config.get('pricing', {})
-            input_cost = pricing.get('input_tokens_per_million', 0)
-            output_cost = pricing.get('output_tokens_per_million', 0)
+        with col2:  # Center the banner and button
+            # Use Streamlit native functions for reliable rendering
+            st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
             
-            st.markdown(f"""
-            <div style="border-left: 4px solid {model_config['color']}; padding: 15px; margin-bottom: 20px; background-color: #f8f9fa;">
-                <h3 style="margin: 0;">{model_config['emoji']} {model_config['name']}</h3>
-                <p style="color: gray; font-size: 0.9em; margin: 5px 0;">Powered by {model_config['display_name']} ({model_config.get('provider', 'Unknown')})</p>
-                <p style="color: #666; font-size: 0.8em; margin: 5px 0;">💰 ${input_cost:.2f} input / ${output_cost:.2f} output per 1M tokens</p>
-                <p style="color: #666; font-size: 0.8em; margin: 5px 0;">🎯 {model_config.get('description', 'AI-powered Texas tourism assistant')}</p>
+            # Banner Image
+            st.image("https://www.traveltexas.com/sites/default/files/texas-banner-hero.jpg", 
+                    width=200, caption="Discover Texas!")
+            
+            # Call-to-Action Section
+            st.markdown("""
+            <div style="text-align: center; padding: 20px; background-color: #f0f8ff; border-radius: 10px; margin: 20px 0;">
+                <h3>🌟 Ready to Explore Texas? 🌟</h3>
+                <p>Click the link below to discover amazing experiences!</p>
+                <a href="https://www.traveltexas.com" target="_blank" style="
+                    display: inline-block;
+                    background-color: #ff6b6b;
+                    color: white;
+                    padding: 15px 30px;
+                    text-decoration: none;
+                    border-radius: 25px;
+                    font-weight: bold;
+                    font-size: 16px;
+                ">Visit TravelTexas.com</a>
             </div>
             """, unsafe_allow_html=True)
+            
+            st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown("---")
 
@@ -335,9 +193,6 @@ class TravelTexasFrontend:
             prompt = st.chat_input("Ask me about Texas adventures, food, culture, and more!")
 
         if prompt:
-            if not self.backend.validate_api_key(st.session_state.openrouter_key):
-                st.error("Please enter your OpenRouter API key in the sidebar!")
-                return
 
             # Start cost tracking session if not already started
             if not hasattr(st.session_state, 'cost_session_started'):
@@ -360,7 +215,7 @@ class TravelTexasFrontend:
 
             # Prepare messages for API
             messages = [
-                {"role": "system", "content": model_config['system_prompt']},
+                {"role": "system", "content": TEXAS_TOURISM_AGENT_PROMPT},
                 *st.session_state.chat_history
             ]
 
@@ -372,7 +227,7 @@ class TravelTexasFrontend:
                 try:
                     # Stream the response
                     for chunk in self.backend.call_openrouter_api_streaming(
-                        messages, st.session_state.openrouter_key, model_config
+                        messages, model_config
                     ):
                         if chunk:
                             full_response += chunk
@@ -391,13 +246,18 @@ class TravelTexasFrontend:
                         "content": full_response
                     })
 
-                    # Update token usage with real calculation
-                    estimated_input_tokens = self.backend.count_tokens(prompt)
+                    # Update token usage with breakdown
+                    user_input_tokens = self.backend.count_tokens(prompt)
+                    system_prompt_tokens = self.backend.count_tokens(TEXAS_TOURISM_AGENT_PROMPT)
+                    total_input_tokens = user_input_tokens + system_prompt_tokens
                     estimated_output_tokens = self.backend.count_tokens(full_response)
                     
-                    st.session_state.token_usage['input_tokens'] += estimated_input_tokens
+                    st.session_state.token_usage['input_tokens'] += total_input_tokens
                     st.session_state.token_usage['output_tokens'] += estimated_output_tokens
-                    st.session_state.token_usage['total_tokens'] += estimated_input_tokens + estimated_output_tokens
+                    st.session_state.token_usage['total_tokens'] += total_input_tokens + estimated_output_tokens
+                    
+                    # Show detailed token breakdown
+                    st.success(f"✅ Tokens: {user_input_tokens} user + {system_prompt_tokens} system + {estimated_output_tokens} output = {total_input_tokens + estimated_output_tokens} total")
 
                     # Rerun to update metrics
                     st.rerun()
@@ -409,91 +269,74 @@ class TravelTexasFrontend:
         """Render the analytics dashboard"""
         st.title("📊 Cost Analytics Dashboard")
         
-        # Tabs for different analytics views
-        tab1, tab2, tab3, tab4 = st.tabs(["💰 Cost Comparison", "📈 Usage Trends", "🎯 Budget Status", "📋 Reports"])
-        
-        with tab1:
+        # Model Cost Comparison section with refresh button
+        col1, col2 = st.columns([3, 1])
+        with col1:
             st.subheader("Model Cost Comparison")
-            comparison_data = self.backend.get_cost_comparison_table()
-            
-            if comparison_data:
-                # Create DataFrame for display
-                import pandas as pd
-                df = pd.DataFrame(comparison_data)
-                
-                # Display table
-                st.dataframe(df, width='stretch')
-                
-                # Display chart
-                import plotly.express as px
-                fig = px.bar(df, x='model_name', y='total_cost_per_session', 
-                           title='Cost Per Session by Model',
-                           color='total_cost_per_session',
-                           color_continuous_scale='RdYlGn_r')
-                st.plotly_chart(fig, width='stretch', key="cost_comparison_chart")
-            else:
-                st.info("No cost comparison data available")
+        with col2:
+            if st.button(
+                "🔄 Refresh Data", 
+                key="refresh_analytics", 
+                type="primary",
+                help="Update with latest data from Supabase",
+                width='stretch'
+            ):
+                st.rerun()
         
-        with tab2:
-            st.subheader("Usage Trends")
-            days = st.slider("Days to analyze", 1, 90, 30)
-            
-            # Usage trends chart
-            trends_chart = self.backend.get_usage_trends_chart(days)
-            st.plotly_chart(trends_chart, width='stretch', key="usage_trends_chart")
-            
-            # Model usage pie chart
-            pie_chart = self.backend.get_model_usage_pie_chart(days)
-            st.plotly_chart(pie_chart, width='stretch', key="model_usage_pie_chart")
+        # Fetch live data from Supabase
+        comparison_data = self.backend.get_cost_comparison_table()
         
-        with tab3:
-            st.subheader("Budget Status")
+        if comparison_data:
+            # Use analytics dashboard for formatted display
+            from analytics_dashboard import AnalyticsDashboard
+            analytics = AnalyticsDashboard()
+            df = analytics.generate_cost_comparison_table()
             
-            # Budget status chart
-            budget_chart = self.backend.get_budget_status_chart()
-            st.plotly_chart(budget_chart, width='stretch', key="budget_status_chart")
+            # Display table
+            st.dataframe(df, width='stretch')
             
-            # Budget details
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                daily_budget = self.backend.get_budget_status("daily")
-                st.metric("Daily Budget", f"${daily_budget.get('limit_amount', 0):.2f}", 
-                         f"${daily_budget.get('current_spent', 0):.2f} spent")
+            # Display chart
+            import plotly.express as px
+            fig = px.bar(df, x='Model', y='Cost_per_Mil', 
+                       title='Cost Per Mil by Model (Live Data)',
+                       color='Cost_per_Mil',
+                       color_continuous_scale='RdYlGn_r')
             
-            with col2:
-                monthly_budget = self.backend.get_budget_status("monthly")
-                st.metric("Monthly Budget", f"${monthly_budget.get('limit_amount', 0):.2f}", 
-                         f"${monthly_budget.get('current_spent', 0):.2f} spent")
+            # Make axis labels bold
+            fig.update_layout(
+                xaxis_title_font=dict(size=14, family="Arial", color="black"),
+                yaxis_title_font=dict(size=14, family="Arial", color="black")
+            )
             
-            with col3:
-                total_budget = self.backend.get_budget_status("total")
-                st.metric("Total Budget", f"${total_budget.get('limit_amount', 0):.2f}", 
-                         f"${total_budget.get('current_spent', 0):.2f} spent")
-        
-        with tab4:
-            st.subheader("Cost Efficiency Report")
+            st.plotly_chart(fig, width='stretch', key="cost_comparison_chart")
+        else:
+            st.info("No cost comparison data available. Start chatting to generate data!")
+            st.markdown("""
+            **💡 Tips:**
+            - Start a conversation with different models to generate usage data
+            - Data is automatically saved to Supabase for persistence
+            - Use the refresh button to update the dashboard with latest data
+            """)
+
+    def _generate_sample_data(self):
+        """Generate sample usage data for testing"""
+        try:
+            # Generate sample sessions and messages for different models
+            models = ["openai/gpt-4.1-mini", "google/gemini-2.5-flash"]
             
-            if st.button("Generate Report"):
-                report = self.backend.get_cost_efficiency_report()
+            for model_id in models:
+                # Create a sample session
+                session_id = self.backend.start_cost_tracking_session(model_id)
                 
-                if "message" in report:
-                    st.info(report["message"])
-                else:
-                    # Display key metrics
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.metric("Total Cost (30d)", f"${report['total_cost']:.2f}")
-                    with col2:
-                        st.metric("Total Sessions", report['total_sessions'])
-                    with col3:
-                        st.metric("Avg Cost/Session", f"${report['avg_cost_per_session']:.4f}")
-                    with col4:
-                        st.metric("Most Efficient Model", report['most_efficient_model'])
-                    
-                    # Recommendations
-                    st.subheader("💡 Recommendations")
-                    for recommendation in report['recommendations']:
-                        st.write(f"• {recommendation}")
+                # Add sample messages
+                self.backend.log_user_message(session_id, "Tell me about Texas attractions")
+                self.backend.log_assistant_message(session_id, "Texas has amazing attractions like the Alamo, Big Bend National Park, and Austin's music scene!")
+                
+                # End the session
+                self.backend.end_cost_tracking_session(session_id)
+                
+        except Exception as e:
+            st.error(f"Error generating sample data: {str(e)}")
 
     def render_main_app(self):
         """Render the main application"""

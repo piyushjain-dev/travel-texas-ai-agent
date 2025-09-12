@@ -27,37 +27,9 @@
       "max_tokens": 4000,
       "available": true,
       "recommended_for": "Fast responses, complex reasoning, multimodal tasks"
-    },
-    "x-ai/grok-2-1212": {
-      "name": "Grok 2",
-      "provider": "xAI",
-      "emoji": "🤖",
-      "description": "Working Grok model with humorous personality",
-      "pricing": {
-        "input_tokens_per_million": 0.30,
-        "output_tokens_per_million": 0.50
-      },
-      "capabilities": ["cheapest", "humorous", "real-time", "personality"],
-      "max_tokens": 4000,
-      "available": true,
-      "recommended_for": "Budget optimization, personality-driven responses, high-volume usage"
-    },
-    "x-ai/grok-3-mini": {
-      "name": "Grok 3 Mini",
-      "provider": "xAI",
-      "emoji": "🤖",
-      "description": "Cheapest output tokens with humorous personality (currently unavailable)",
-      "pricing": {
-        "input_tokens_per_million": 0.30,
-        "output_tokens_per_million": 0.50
-      },
-      "capabilities": ["cheapest", "humorous", "real-time", "personality"],
-      "max_tokens": 4000,
-      "available": false,
-      "recommended_for": "Budget optimization, personality-driven responses, high-volume usage"
     }
   },
-  "default_model": "openai/gpt-4.1-mini",
+  "default_model": "google/gemini-2.5-flash",
   "cost_calculation": {
     "openrouter_fee_percentage": 5.5,
     "minimum_fee": 0.80

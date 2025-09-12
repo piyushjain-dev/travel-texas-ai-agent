@@ -33,25 +33,25 @@ class AnalyticsDashboard:
         # Rename columns to match the example format
         df = df.rename(columns={
             "model_name": "Model",
-            "input_cost_per_million": "Cost per Million Tokens - Input (USD)",
-            "output_cost_per_million": "Cost per Million Tokens - Output (USD)",
+            "input_cost_per_million": "Cost per Mil Tokens - Input (USD)",
+            "output_cost_per_million": "Cost per Mil Tokens - Output (USD)",
             "messages_per_session": "Number of Messages Per Session",
             "input_tokens_per_message": "Input Tokens per Message",
             "output_tokens_per_message": "Output Token Per Message",
             "total_cost_per_session": "Total Cost Per Session",
-            "cost_per_million": "Total Cost Per Mil"
+            "cost_per_million": "Cost_per_Mil"
         })
         
         # Select and reorder columns
         columns = [
             "Model",
-            "Cost per Million Tokens - Input (USD)",
-            "Cost per Million Tokens - Output (USD)",
+            "Cost per Mil Tokens - Input (USD)",
+            "Cost per Mil Tokens - Output (USD)",
             "Number of Messages Per Session",
             "Input Tokens per Message",
             "Output Token Per Message",
-            "Total Cost Per Session",
-            "Total Cost Per Mil"
+            "Cost_per_Mil",
+            "Total Cost Per Session"
         ]
         
         return df[columns]

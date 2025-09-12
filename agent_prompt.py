@@ -180,6 +180,7 @@ FOR OUTDOOR ADVENTURE:
 - "I'll send y'all the booking link"
 
 ✅ INCLUDE SPECIFIC DETAILS:
+
 - Exact prices and package inclusions
 - Specific dates and availability
 - Location names and addresses

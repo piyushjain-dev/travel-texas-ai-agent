@@ -9,10 +9,14 @@ import time
 import tiktoken
 import os
 from typing import Dict
+from dotenv import load_dotenv
 from agent_prompt import TEXAS_TOURISM_AGENT_PROMPT, WELCOME_MESSAGE
 from cost_engine import CostCalculationEngine
 from budget_manager import BudgetManager
 from analytics_dashboard import AnalyticsDashboard
+
+# Load environment variables
+load_dotenv()
 
 
 class TravelTexasBackend:
@@ -158,8 +162,13 @@ class TravelTexasBackend:
             # Fallback estimation: roughly 4 characters per token
             return len(text) // 4
 
-    def call_openrouter_api_streaming(self, messages, api_key, model_config):
+    def call_openrouter_api_streaming(self, messages, model_config):
         """Call OpenRouter API with streaming - yields content chunks"""
+        # Get API key from environment variables
+        api_key = os.getenv('OPENROUTER_API_KEY')
+        if not api_key:
+            raise ValueError("OpenRouter API key not found in environment variables")
+        
         url = "https://openrouter.ai/api/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {api_key}",
