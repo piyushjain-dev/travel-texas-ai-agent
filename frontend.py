@@ -271,9 +271,9 @@ class TravelTexasFrontend:
                         if chunk:
                             full_response += chunk
                             message_placeholder.write(full_response + "▌")
-                            time.sleep(0.01)  # Faster streaming for more natural feel
+                            time.sleep(0.01)  # Slightly slower for stability
                     
-                    # Remove the cursor and show final response
+                    # Final update to remove cursor cleanly
                     message_placeholder.write(full_response)
                     
                     # Log assistant message for cost tracking
@@ -295,7 +295,7 @@ class TravelTexasFrontend:
                     st.session_state.token_usage['output_tokens'] += estimated_output_tokens
                     st.session_state.token_usage['total_tokens'] += total_input_tokens + estimated_output_tokens
                     
-                    # Rerun to update metrics silently
+                    # Rerun to clear input box and update metrics
                     st.rerun()
                     
                 except Exception as e:
