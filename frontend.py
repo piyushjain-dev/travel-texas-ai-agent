@@ -1,3 +1,4 @@
+
 """
 Frontend components for Travel Texas AI Agent
 Handles Streamlit UI, user interactions, and display logic
@@ -31,14 +32,14 @@ class TravelTexasFrontend:
     def render_sidebar(self):
         """Render the sidebar with controls"""
         with st.sidebar:
-            st.image("https://www.traveltexas.com/sites/default/files/tto_logo_stacked.png", width=200)
+            st.image("Texas.webp", width=450)
             st.title("Travel Texas AI Agent")
             
 
             st.markdown("---")
 
             # Model selection dropdown
-            st.subheader("🤖 Model Selection")
+            st.subheader(" Model Selection")
 
             # Create options list with emoji and pricing
             model_options = {}
@@ -46,7 +47,7 @@ class TravelTexasFrontend:
             
             for key, info in available_models.items():
                 if info.get('available', True):
-                    label = f"{info['emoji']} {info['name']}"
+                    label = f"{info['name']}"
                     model_options[label] = key
 
             # Handle case where selected model might not be available
@@ -107,10 +108,6 @@ class TravelTexasFrontend:
                     st.metric("Total Tokens", "0")
                     st.metric("Total Cost", "$0.0000")
 
-            st.markdown("---")
-
-            
-            
             # Session Summary
             session_summary = self.backend.get_session_summary()
             if session_summary:
@@ -123,8 +120,6 @@ class TravelTexasFrontend:
                     st.metric("Input Tokens", f"{session_summary['total_input_tokens']:,}")
                     st.metric("Output Tokens", f"{session_summary['total_output_tokens']:,}")
             
-            st.markdown("---")
-
             # Clear chat
             if st.button("🗑️ Clear Chat"):
                 st.session_state.chat_history = [self.backend.get_welcome_message()]
@@ -132,6 +127,8 @@ class TravelTexasFrontend:
                 # End current session
                 self.backend.end_cost_tracking_session()
                 st.rerun()
+            
+            st.markdown("---")
 
     def render_header(self, model_config):
         """Render the main header section"""
@@ -146,27 +143,59 @@ class TravelTexasFrontend:
             # Use Streamlit native functions for reliable rendering
             st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
             
-            # Banner Image
-            st.image("https://www.traveltexas.com/sites/default/files/texas-banner-hero.jpg", 
-                    width=200, caption="Discover Texas!")
+            # Banner Image - Replace with your local JPG image
+            try:
+                # Try to load local banner image first
+                st.image("dallas_banner.jpg", width=700)
+            except:
+                # Fallback to online image if local file doesn't exist
+                st.image("https://www.traveltexas.com/sites/default/files/texas-banner-hero.jpg", 
+                        width=700)
             
-            # Call-to-Action Section
+            # Creative text with Discover Texas link - Mobile Compatible
             st.markdown("""
-            <div style="text-align: center; padding: 20px; background-color: #f0f8ff; border-radius: 10px; margin: 20px 0;">
-                <h3>🌟 Ready to Explore Texas? 🌟</h3>
-                <p>Click the link below to discover amazing experiences!</p>
+            <div style="
+                text-align: center; 
+                margin: 15px 0; 
+                padding: 12px; 
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
+                border-radius: 8px; 
+                border-left: 3px solid #0066cc;
+                max-width: 100%;
+                box-sizing: border-box;
+            ">
+                <p style="
+                    margin: 0 0 8px 0; 
+                    font-size: clamp(14px, 4vw, 16px); 
+                    color: #495057; 
+                    font-style: italic;
+                    line-height: 1.4;
+                ">
+                    🌟 "Everything's bigger in Texas" - and so are the adventures waiting for you! 🌟
+                </p>
+                <p style="
+                    margin: 0; 
+                    font-size: clamp(12px, 3.5vw, 14px); 
+                    color: #6c757d;
+                    line-height: 1.3;
+                ">
+                    From the bustling streets of Dallas to the serene landscapes of Big Bend, 
+                    your perfect Texas experience awaits...
+                </p>
                 <a href="https://www.traveltexas.com" target="_blank" style="
                     display: inline-block;
-                    background-color: #ff6b6b;
-                    color: white;
-                    padding: 15px 30px;
-                    text-decoration: none;
-                    border-radius: 25px;
+                    margin-top: 8px;
                     font-weight: bold;
-                    font-size: 16px;
-                ">Visit TravelTexas.com</a>
+                    font-size: clamp(16px, 4.5vw, 18px);
+                    color: #0066cc;
+                    text-decoration: underline;
+                    transition: color 0.3s ease;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                ">Discover Texas!</a>
             </div>
             """, unsafe_allow_html=True)
+            
             
             st.markdown("</div>", unsafe_allow_html=True)
 
@@ -282,7 +311,6 @@ class TravelTexasFrontend:
                 "🔄 Refresh Data", 
                 key="refresh_analytics", 
                 type="primary",
-                help="Update with latest data from Supabase",
                 width='stretch'
             ):
                 st.rerun()
@@ -344,86 +372,16 @@ class TravelTexasFrontend:
 
     def render_main_app(self):
         """Render the main application"""
-        # Add custom CSS for ChatGPT-like experience
-        st.markdown("""
+        # Load external CSS file
+        try:
+            with open('styles.css', 'r') as f:
+                css_content = f.read()
+        except FileNotFoundError:
+            css_content = "/* CSS file not found */"
+        
+        st.markdown(f"""
         <style>
-        /* Normal chat input */
-        .stChatInput {
-            position: relative !important;
-            background: white !important;
-            border-radius: 12px !important;
-            padding: 12px !important;
-            margin: 1rem 0 !important;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important;
-            border: 1px solid #e5e7eb !important;
-        }
-        
-        .stChatInput input {
-            border: none !important;
-            padding: 12px 16px !important;
-            font-size: 16px !important;
-            height: auto !important;
-            background: transparent !important;
-            transition: all 0.2s ease !important;
-            width: 100% !important;
-            margin: 0 !important;
-            outline: none !important;
-            resize: none !important;
-        }
-        
-        .stChatInput:focus-within {
-            border-color: #3b82f6 !important;
-            box-shadow: 0 2px 10px rgba(59, 130, 246, 0.2) !important;
-        }
-        
-        .stChatInput:hover {
-            border-color: #9ca3af !important;
-        }
-        
-        /* Chat message styling */
-        .stChatMessage {
-            margin-bottom: 1rem !important;
-            padding: 1rem !important;
-            max-width: 800px !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-        }
-        
-        /* Hide extra elements */
-        .stChatInput + div {
-            display: none !important;
-        }
-        
-        .stChatInput:not(:first-of-type) {
-            display: none !important;
-        }
-        
-        /* Main container normal padding */
-        .main .block-container {
-            padding-bottom: 2rem !important;
-            margin-bottom: 1rem !important;
-        }
-        
-        /* Auto-scroll container */
-        .chat-container {
-            max-height: calc(100vh - 200px) !important;
-            overflow-y: auto !important;
-            padding-bottom: 20px !important;
-            scroll-behavior: smooth !important;
-        }
-        
-        /* Ensure chat messages are visible */
-        .stChatMessage {
-            margin-bottom: 1rem !important;
-            padding: 1rem !important;
-            position: relative !important;
-            z-index: 1 !important;
-        }
-        
-        /* Smooth scrolling */
-        html {
-            scroll-behavior: smooth !important;
-        }
+        {css_content}
         </style>
         """, unsafe_allow_html=True)
         

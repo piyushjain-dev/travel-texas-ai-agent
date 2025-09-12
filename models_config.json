@@ -1,19 +1,5 @@
 {
   "models": {
-    "openai/gpt-4.1-mini": {
-      "name": "GPT-4.1 Mini",
-      "provider": "OpenAI",
-      "emoji": "💨",
-      "description": "Fast, cost-effective model for general conversations",
-      "pricing": {
-        "input_tokens_per_million": 0.40,
-        "output_tokens_per_million": 1.60
-      },
-      "capabilities": ["fast", "reliable", "general", "cost-effective"],
-      "max_tokens": 4000,
-      "available": true,
-      "recommended_for": "General chat, quick responses, budget-conscious users"
-    },
     "google/gemini-2.5-flash": {
       "name": "Gemini 2.5 Flash",
       "provider": "Google",
@@ -27,6 +13,20 @@
       "max_tokens": 4000,
       "available": true,
       "recommended_for": "Fast responses, complex reasoning, multimodal tasks"
+    },
+    "openai/gpt-4.1-mini": {
+      "name": "GPT-4.1 Mini",
+      "provider": "OpenAI",
+      "emoji": "💨",
+      "description": "Fast, cost-effective model for general conversations",
+      "pricing": {
+        "input_tokens_per_million": 0.40,
+        "output_tokens_per_million": 1.60
+      },
+      "capabilities": ["fast", "reliable", "general", "cost-effective"],
+      "max_tokens": 4000,
+      "available": true,
+      "recommended_for": "General chat, quick responses, budget-conscious users"
     }
   },
   "default_model": "google/gemini-2.5-flash",
