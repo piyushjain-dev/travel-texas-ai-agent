@@ -173,14 +173,23 @@ class TravelTexasFrontend:
             st.markdown("---")
 
     def render_chat_history(self):
-        """Render the chat history"""
+        """Render the chat history with auto-scroll"""
+        # Create a container with auto-scroll
         chat_container = st.container()
-
+        
         with chat_container:
+            # Add JavaScript for auto-scroll
+            st.markdown("""
+            <div class="chat-container" id="chat-container">
+            """, unsafe_allow_html=True)
+            
             # Display chat history
             for message in st.session_state.chat_history:
                 with st.chat_message(message["role"]):
                     st.write(message["content"])
+            
+        # Close container
+        st.markdown("</div>", unsafe_allow_html=True)
 
     def handle_user_input(self, model_config):
         """Handle user input and generate AI response"""
@@ -225,14 +234,12 @@ class TravelTexasFrontend:
                 full_response = ""
                 
                 try:
-                    # Stream the response
-                    for chunk in self.backend.call_openrouter_api_streaming(
-                        messages, model_config
-                    ):
+                    # Stream the response with smooth character-by-character effect
+                    for chunk in self.backend.call_openrouter_api_streaming(messages, model_config):
                         if chunk:
                             full_response += chunk
                             message_placeholder.write(full_response + "▌")
-                            time.sleep(0.03)  # Small delay for better visual effect
+                            time.sleep(0.01)  # Faster streaming for more natural feel
                     
                     # Remove the cursor and show final response
                     message_placeholder.write(full_response)
@@ -256,10 +263,7 @@ class TravelTexasFrontend:
                     st.session_state.token_usage['output_tokens'] += estimated_output_tokens
                     st.session_state.token_usage['total_tokens'] += total_input_tokens + estimated_output_tokens
                     
-                    # Show detailed token breakdown
-                    st.success(f"✅ Tokens: {user_input_tokens} user + {system_prompt_tokens} system + {estimated_output_tokens} output = {total_input_tokens + estimated_output_tokens} total")
-
-                    # Rerun to update metrics
+                    # Rerun to update metrics silently
                     st.rerun()
                     
                 except Exception as e:
@@ -340,6 +344,89 @@ class TravelTexasFrontend:
 
     def render_main_app(self):
         """Render the main application"""
+        # Add custom CSS for ChatGPT-like experience
+        st.markdown("""
+        <style>
+        /* Normal chat input */
+        .stChatInput {
+            position: relative !important;
+            background: white !important;
+            border-radius: 12px !important;
+            padding: 12px !important;
+            margin: 1rem 0 !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important;
+            border: 1px solid #e5e7eb !important;
+        }
+        
+        .stChatInput input {
+            border: none !important;
+            padding: 12px 16px !important;
+            font-size: 16px !important;
+            height: auto !important;
+            background: transparent !important;
+            transition: all 0.2s ease !important;
+            width: 100% !important;
+            margin: 0 !important;
+            outline: none !important;
+            resize: none !important;
+        }
+        
+        .stChatInput:focus-within {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 2px 10px rgba(59, 130, 246, 0.2) !important;
+        }
+        
+        .stChatInput:hover {
+            border-color: #9ca3af !important;
+        }
+        
+        /* Chat message styling */
+        .stChatMessage {
+            margin-bottom: 1rem !important;
+            padding: 1rem !important;
+            max-width: 800px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+        
+        /* Hide extra elements */
+        .stChatInput + div {
+            display: none !important;
+        }
+        
+        .stChatInput:not(:first-of-type) {
+            display: none !important;
+        }
+        
+        /* Main container normal padding */
+        .main .block-container {
+            padding-bottom: 2rem !important;
+            margin-bottom: 1rem !important;
+        }
+        
+        /* Auto-scroll container */
+        .chat-container {
+            max-height: calc(100vh - 200px) !important;
+            overflow-y: auto !important;
+            padding-bottom: 20px !important;
+            scroll-behavior: smooth !important;
+        }
+        
+        /* Ensure chat messages are visible */
+        .stChatMessage {
+            margin-bottom: 1rem !important;
+            padding: 1rem !important;
+            position: relative !important;
+            z-index: 1 !important;
+        }
+        
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         # Create tabs for main app and analytics
         tab1, tab2 = st.tabs(["💬 Chat", "📊 Analytics"])
         
@@ -358,6 +445,25 @@ class TravelTexasFrontend:
 
             # Handle user input
             self.handle_user_input(model_config)
+            
+            # Optimized auto-scroll script
+            st.markdown("""
+            <script>
+            // Smooth auto-scroll function
+            function scrollToBottom() {
+                const container = document.getElementById('chat-container');
+                if (container) {
+                    container.scrollTo({
+                        top: container.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }
+            }
+            
+            // Auto-scroll after content loads
+            setTimeout(scrollToBottom, 50);
+            </script>
+            """, unsafe_allow_html=True)
         
         with tab2:
             self.render_analytics_dashboard()
