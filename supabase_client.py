@@ -17,12 +17,19 @@ class SupabaseClient:
     
     def __init__(self):
         # Get Supabase credentials from Streamlit secrets (for deployment) or environment variables (for local)
+        self.url = None
+        self.key = None
+        
+        # Try Streamlit secrets first (for deployment)
         try:
-            # Try Streamlit secrets first (for deployment)
-            self.url = st.secrets["SUPABASE_URL"]
-            self.key = st.secrets["SUPABASE_KEY"]
-        except:
-            # Fallback to environment variables (for local development)
+            if hasattr(st, 'secrets') and 'SUPABASE_URL' in st.secrets and 'SUPABASE_KEY' in st.secrets:
+                self.url = st.secrets["SUPABASE_URL"]
+                self.key = st.secrets["SUPABASE_KEY"]
+        except Exception as e:
+            print(f"Error accessing Streamlit secrets: {e}")
+        
+        # Fallback to environment variables (for local development)
+        if not self.url or not self.key:
             self.url = os.getenv("SUPABASE_URL", "https://tvwygzsooodvzeyhkezu.supabase.co")
             self.key = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2d3lnenNvb29kdnpleWhrZXp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1Nzk2NTUsImV4cCI6MjA3MzE1NTY1NX0.hrU-itiLF53QqudWKFuz7jCpCKIEtoCD0ymkNMqIQ2Y")
         

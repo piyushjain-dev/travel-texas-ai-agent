@@ -166,15 +166,28 @@ class TravelTexasBackend:
     def call_openrouter_api_streaming(self, messages, model_config):
         """Call OpenRouter API with streaming - yields content chunks"""
         # Get API key from Streamlit secrets (for deployment) or environment variables (for local)
+        api_key = None
+        
+        # Try Streamlit secrets first (for deployment)
         try:
-            # Try Streamlit secrets first (for deployment)
-            api_key = st.secrets["OPENROUTER_API_KEY"]
-        except:
-            # Fallback to environment variables (for local development)
+            if hasattr(st, 'secrets') and 'OPENROUTER_API_KEY' in st.secrets:
+                api_key = st.secrets["OPENROUTER_API_KEY"]
+        except Exception as e:
+            print(f"Error accessing Streamlit secrets: {e}")
+        
+        # Fallback to environment variables (for local development)
+        if not api_key:
             api_key = os.getenv('OPENROUTER_API_KEY')
         
         if not api_key:
-            raise ValueError("OpenRouter API key not found in secrets or environment variables")
+            # Debug information
+            debug_info = f"""
+            Debug Info:
+            - Streamlit secrets available: {hasattr(st, 'secrets')}
+            - OPENROUTER_API_KEY in secrets: {'OPENROUTER_API_KEY' in st.secrets if hasattr(st, 'secrets') else 'N/A'}
+            - Environment variable: {os.getenv('OPENROUTER_API_KEY', 'Not found')}
+            """
+            raise ValueError(f"OpenRouter API key not found in secrets or environment variables. {debug_info}")
         
         url = "https://openrouter.ai/api/v1/chat/completions"
         headers = {
