@@ -25,7 +25,7 @@ class TravelTexasBackend:
     
     def __init__(self):
         self.config_file = "models_config.json"
-        self.models_config = self.load_models_config()
+        self.models_config = TravelTexasBackend.load_models_config()
         self.available_models = self.models_config.get("models", {})
         self.default_model = self.models_config.get("default_model", "openai/gpt-4.1-mini")
         self.system_prompt = TEXAS_TOURISM_AGENT_PROMPT
@@ -68,21 +68,24 @@ class TravelTexasBackend:
             self._analytics_dashboard.budget_manager.supabase = self._get_supabase_client()
         return self._analytics_dashboard
         
+    @staticmethod
     @st.cache_data
-    def load_models_config(self):
+    def load_models_config():
         """Load models configuration from JSON file"""
+        config_file = "models_config.json"
         try:
-            config_path = os.path.join(os.path.dirname(__file__), self.config_file)
+            config_path = os.path.join(os.path.dirname(__file__), config_file)
             with open(config_path, 'r') as f:
                 return json.load(f)
         except FileNotFoundError:
-            print(f"Warning: {self.config_file} not found. Using default models.")
-            return self.get_default_config()
+            print(f"Warning: {config_file} not found. Using default models.")
+            return TravelTexasBackend.get_default_config()
         except json.JSONDecodeError as e:
-            print(f"Error parsing {self.config_file}: {e}. Using default models.")
-            return self.get_default_config()
+            print(f"Error parsing {config_file}: {e}. Using default models.")
+            return TravelTexasBackend.get_default_config()
     
-    def get_default_config(self):
+    @staticmethod
+    def get_default_config():
         """Fallback default configuration if config file is not available"""
         return {
             "models": {
