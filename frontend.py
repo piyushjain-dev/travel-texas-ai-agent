@@ -305,9 +305,7 @@ class TravelTexasFrontend:
                 api_stream = self.backend.call_openrouter_api_streaming(messages, model_config)
                 
                 for chunk in api_stream:
-                    if isinstance(chunk, dict) and "usage" in chunk:  # Usage data
-                        api_usage_data = chunk["usage"]
-                    elif isinstance(chunk, str) and not chunk.startswith("API Error") and not chunk.startswith("Error"):  # Content chunk
+                    if isinstance(chunk, str) and not chunk.startswith("API Error") and not chunk.startswith("Error"):  # Content chunk
                         full_response += chunk
                         yield chunk
                     elif isinstance(chunk, str):  # Error message
@@ -318,22 +316,20 @@ class TravelTexasFrontend:
                 # Log assistant message for cost tracking
                 self.backend.log_assistant_message(full_response, st.session_state.selected_model)
 
-                if api_usage_data and api_usage_data['input_tokens'] > 0:
+                # Get token usage data from backend
+                api_usage_data = self.backend.get_last_token_usage()
+                if api_usage_data and api_usage_data.get('prompt_tokens', 0) > 0:
                     # Use actual API usage data
                     if not st.session_state.system_prompt_counted:
                         st.session_state.system_prompt_counted = True
                         # For first message, use API input tokens (includes system prompt)
-                        st.session_state.token_usage['input_tokens'] += api_usage_data['input_tokens']
+                        st.session_state.token_usage['input_tokens'] = api_usage_data['prompt_tokens']
                     else:
-                        # For subsequent messages, estimate user input tokens
-                        user_input_tokens = self.backend.count_tokens(user_message)
-                        st.session_state.token_usage['input_tokens'] += user_input_tokens
+                        # For subsequent messages, use API input tokens
+                        st.session_state.token_usage['input_tokens'] = api_usage_data['prompt_tokens']
                     
-                    st.session_state.token_usage['output_tokens'] += api_usage_data['output_tokens']
-                    st.session_state.token_usage['total_tokens'] = (
-                        st.session_state.token_usage['input_tokens'] + 
-                        st.session_state.token_usage['output_tokens']
-                    )
+                    st.session_state.token_usage['output_tokens'] = api_usage_data['completion_tokens']
+                    st.session_state.token_usage['total_tokens'] = api_usage_data['total_tokens']
                 else:
                     # Fallback to estimation if API doesn't return usage
                     user_input_tokens = self.backend.count_tokens(user_message)

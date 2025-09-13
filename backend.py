@@ -172,6 +172,8 @@ class TravelTexasBackend:
 
     def call_openrouter_api_streaming(self, messages, model_config):
         """Call OpenRouter API with streaming - yields content chunks and returns token usage"""
+        # Store token usage data for this call
+        self._last_token_usage = None
         # Get API key from environment variables (works for both local and Streamlit Cloud)
         api_key = os.getenv('OPENROUTER_API_KEY')
         
@@ -220,14 +222,18 @@ class TravelTexasBackend:
                         except json.JSONDecodeError:
                             continue
             
-            # Return token usage if available
+            # Store token usage data for later access
             if token_usage:
-                yield f"\n\n[TOKEN_USAGE:{json.dumps(token_usage)}]"
+                self._last_token_usage = token_usage
                             
         except requests.exceptions.RequestException as e:
             yield f"API Error: {str(e)}"
         except Exception as e:
             yield f"Error: {str(e)}"
+    
+    def get_last_token_usage(self):
+        """Get the token usage data from the last API call"""
+        return getattr(self, '_last_token_usage', None)
 
     async def call_openrouter_api_streaming_async(self, messages, model_config) -> AsyncGenerator[str, None]:
         """Call OpenRouter API with async streaming - yields content chunks"""
